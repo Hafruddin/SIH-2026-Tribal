@@ -5,19 +5,17 @@ services:
     plan: free
     region: oregon
     rootDir: backend
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 5001
       - key: JWT_SECRET
         generateValue: true
       - key: OPENAI_API_KEY
-        sync: false
+        value: sk-demo-openai-key-placeholder
       - key: ELEVENLABS_API_KEY
-        sync: false
+        value: sk_6f458b4b93894149b14309f331b442528d707edf551a3983
       - key: ELEVENLABS_AGENT_ID
         value: agent_jago_tribal_scholar
       - key: CORS_ORIGIN
