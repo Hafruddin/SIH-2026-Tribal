@@ -38,9 +38,15 @@ export const LoginPage: React.FC = () => {
       }
     } catch (err: any) {
       if (!err.response) {
-        setError(err.message || 'Unable to reach the authentication server. Please verify backend server is running and configured.');
+        setError(err.message || 'Unable to reach the authentication server. Please verify backend server is running.');
+      } else if (err.response.status === 401) {
+        setError(err.response.data?.error || 'Invalid credentials. Please check your identifier and password.');
+      } else if (err.response.status === 404) {
+        setError('Authentication service endpoint not found (404). Please try again.');
+      } else if (err.response.status >= 500) {
+        setError('Authentication server error. Please try again in a few moments.');
       } else {
-        setError(err.response?.data?.error || 'Invalid credentials. Please check your identifier and password.');
+        setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
       }
     } finally {
       setLoading(false);
@@ -68,9 +74,15 @@ export const LoginPage: React.FC = () => {
       }
     } catch (err: any) {
       if (!err.response) {
-        setError(err.message || 'Unable to reach the authentication server. Please verify backend server is running and configured.');
+        setError(err.message || 'Unable to reach the authentication server. Please verify backend server is running.');
+      } else if (err.response.status === 401) {
+        setError(err.response.data?.error || 'Invalid credentials. Please check your identifier and password.');
+      } else if (err.response.status === 404) {
+        setError('Authentication service endpoint not found (404). Please try again.');
+      } else if (err.response.status >= 500) {
+        setError('Authentication server error. Please try again in a few moments.');
       } else {
-        setError(err.response?.data?.error || 'Invalid credentials. Please check your identifier and password.');
+        setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
       }
     } finally {
       setLoading(false);

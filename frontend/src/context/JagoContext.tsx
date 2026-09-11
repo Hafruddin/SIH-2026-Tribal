@@ -366,7 +366,7 @@ const JagoInnerProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     // 2. Otherwise send to backend process endpoint
     stopAudioPlayback();
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('tribal_scholar_token') || localStorage.getItem('token');
       const res = await axios.post(
         '/api/voice/process',
         {
