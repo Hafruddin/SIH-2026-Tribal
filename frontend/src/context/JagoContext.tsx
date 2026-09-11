@@ -310,34 +310,10 @@ const JagoInnerProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       return;
     }
 
-    // 3. Attempt ElevenLabs Signed URL Session with exponential backoff retry (1s, 2s, 4s)
-    const maxAttempts = 4;
-    const delays = [0, 1000, 2000, 4000];
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      if (attempt > 1) {
-        setJagoState('reconnecting');
-        setStatusMessage(`Reconnecting... (Attempt ${attempt}/${maxAttempts})`);
-        await new Promise(r => setTimeout(r, delays[attempt - 1]));
-      }
-
-      try {
-        const res = await axios.get('/api/jago/signed-url');
-        if (res.data?.signedUrl) {
-          setDiagnostics(prev => ({ ...prev, signedUrlGenerated: true }));
-          await conversation.startSession({ signedUrl: res.data.signedUrl });
-          setJagoState('listening');
-          setStatusMessage('Listening...');
-          isStartingRef.current = false;
-          return;
-        }
-      } catch (err: any) {
-        console.warn(`[JAGO ElevenLabs Attempt ${attempt} Failed]`, err.message);
-      }
-    }
-
-    // 4. Fallback Mode if ElevenLabs Signed URL fails
-    console.log('[JAGO Fallback] ElevenLabs real-time agent unavailable. Operating in high-performance local speech mode.');
+    // 3. Bypass ElevenLabs Realtime Agent to ensure 100% Multilingual Support
+    // The Conversational AI SDK is bound to an English-only agent on the dashboard.
+    // By using Web Speech API + /api/voice/process, we guarantee 8-language TTS & STT.
+    console.log('[JAGO] Operating in high-performance multilingual speech mode.');
     setJagoState('listening');
     setStatusMessage('Listening... Speak now');
 
@@ -353,7 +329,7 @@ const JagoInnerProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
   // Handle Mic Toggle Button
   const handleMicClick = useCallback(() => {
-    if (jagoState === 'listening' || jagoState === 'agent_speaking' || jagoState === 'user_speaking') {
+    if (jagoState !== 'idle' && jagoState !== 'error') {
       stopJago();
     } else {
       startJago();
