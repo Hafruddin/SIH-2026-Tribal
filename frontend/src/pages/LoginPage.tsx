@@ -38,9 +38,9 @@ export const LoginPage: React.FC = () => {
       }
     } catch (err: any) {
       if (!err.response) {
-        setError('Unable to reach the authentication server. Please check backend server status.');
+        setError(err.message || 'Unable to reach the authentication server. Please verify backend server is running and configured.');
       } else {
-        setError(err.response?.data?.error || 'Incorrect OTR ID or password.');
+        setError(err.response?.data?.error || 'Invalid credentials. Please check your identifier and password.');
       }
     } finally {
       setLoading(false);
@@ -68,9 +68,9 @@ export const LoginPage: React.FC = () => {
       }
     } catch (err: any) {
       if (!err.response) {
-        setError('Unable to reach the authentication server. Please check backend server status.');
+        setError(err.message || 'Unable to reach the authentication server. Please verify backend server is running and configured.');
       } else {
-        setError(err.response?.data?.error || 'Incorrect OTR ID or password.');
+        setError(err.response?.data?.error || 'Invalid credentials. Please check your identifier and password.');
       }
     } finally {
       setLoading(false);

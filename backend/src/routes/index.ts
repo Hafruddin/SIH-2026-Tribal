@@ -114,12 +114,18 @@ router.post('/auth/login', (req, res) => {
   let password = (req.body.password || '').trim();
 
   let cleanInput = rawInput.trim();
+
+  // Validate presence of required credentials
+  if (!cleanInput || !password) {
+    return res.status(400).json({ error: 'Identifier (OTR ID/Email/Mobile) and password are required.' });
+  }
+
   const lowerInput = cleanInput.toLowerCase();
 
   // 1. Identify User Role (Admin vs Student)
   let user: any = null;
 
-  if (lowerInput.includes('admin')) {
+  if (lowerInput === 'admin@tribalscholar.demo' || lowerInput === 'admin') {
     user = db.prepare("SELECT * FROM users WHERE role = 'admin' LIMIT 1").get() as any;
   }
 
@@ -139,33 +145,23 @@ router.post('/auth/login', (req, res) => {
     `).get(cleanInput, cleanInput, cleanInput, normalizedInput) as any;
   }
 
-  // Default Fallback: If student OTR / typo / any input, default to primary demo student (Aarav Kumar)
+  // If user still not found, return 401 Unauthorized
   if (!user) {
-    user = db.prepare("SELECT * FROM users WHERE role = 'student' ORDER BY id ASC LIMIT 1").get() as any;
+    return res.status(401).json({ error: 'Invalid credentials. Account not found.' });
   }
 
-  // Fallback to first user in DB if table empty
-  if (!user) {
-    user = db.prepare("SELECT * FROM users LIMIT 1").get() as any;
-  }
-
-  if (!user) {
-    return res.status(500).json({ error: 'Database uninitialized. Please run seed script.' });
-  }
-
-  // 2. Demo Password Handling: Accept bcrypt match OR any demo password string
-  let isPasswordValid = false;
-  if (password) {
-    isPasswordValid = bcrypt.compareSync(password, user.password_hash);
-  }
-
-  // Guarantee login success in demo environment for student / admin testing
+  // 2. Validate Password via bcrypt hash
+  const isPasswordValid = bcrypt.compareSync(password, user.password_hash);
   if (!isPasswordValid) {
-    isPasswordValid = true;
+    return res.status(401).json({ error: 'Invalid credentials. Incorrect password.' });
   }
 
   const student = db.prepare('SELECT * FROM students WHERE user_id = ?').get(user.id) as any;
-  const token = jwt.sign({ id: user.id, email: user.email, role: user.role, otr_id: user.otr_id }, JWT_SECRET, { expiresIn: '7d' });
+  const token = jwt.sign(
+    { id: user.id, email: user.email, role: user.role, otr_id: user.otr_id },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  );
 
   const displayName = student ? student.full_name : (user.role === 'admin' ? 'Demo Administrator' : 'Student User');
   const roleName = user.role === 'admin' ? 'ADMIN' : 'STUDENT';
@@ -570,6 +566,135 @@ router.get('/announcements/:id/download', (req, res) => {
 
   const ui = pdfUi[lang] || pdfUi['en'];
 
+  const pvtgGuidelinesByLang: Record<string, string> = {
+    en: `
+      <h2>Subject: Guidelines for Particularly Vulnerable Tribal Group (PVTG) Priority Verification through e-District Integration</h2>
+      <p><strong>Reference:</strong> F.No. 16013/01/2026-SCD-VI dated 5th September, 2026</p>
+      <hr/>
+      <p>The Ministry of Tribal Affairs issues the following operational guidelines for implementation of <strong>priority verification</strong> and <strong>expedited processing</strong> of scholarship applications from students belonging to Particularly Vulnerable Tribal Groups (PVTGs).</p>
+      <h3>Background</h3>
+      <p>India has 75 identified PVTGs across 18 States and 1 Union Territory, with a combined population of approximately 37.5 lakh. These communities face the most severe socio-economic deprivation and require special attention in welfare scheme implementation.</p>
+      <h3>Key Directives</h3>
+      <ol>
+        <li><strong>Automated PVTG Identification:</strong> State portals must integrate with e-District databases to auto-detect PVTG status from ST certificates. The certificate must specify the exact tribal group name.</li>
+        <li><strong>Fast-Track Processing:</strong> PVTG applications must be verified within 7 working days (vs. 21 days for general ST).</li>
+        <li><strong>Priority Sanctioning:</strong> PVTG applicants shall receive top priority in fund sanctioning queues at District, State, and Central levels.</li>
+        <li><strong>Additional Allowances:</strong> PVTG students are eligible for supplementary hostel allowance of ₹500/month over regular rates.</li>
+      </ol>
+      <h3>List of 75 PVTGs</h3>
+      <p>Some notable PVTGs include: Birhor (Jharkhand), Baiga (MP/Chhattisgarh), Particularly Vulnerable Groups in Andaman &amp; Nicobar (Great Andamanese, Onge, Jarawa, Sentinelese), Korwa (Chhattisgarh), Chenchu (Telangana/AP), Toda (Tamil Nadu), Cholanaickan (Kerala), Birjia (Jharkhand).</p>
+      <p>State Tribal Welfare Departments must complete e-District integration by <strong>31st December 2026</strong>.</p>
+    `,
+    hi: `
+      <h2>विषय: ई-डिस्ट्रिक्ट एकीकरण के माध्यम से विशेष रूप से कमजोर जनजातीय समूहों (PVTG) के लिए प्राथमिकता सत्यापन दिशानिर्देश</h2>
+      <p><strong>संदर्भ:</strong> फा.सं. 16013/01/2026-एससीडी-VI दिनांक 5 सितंबर 2026</p>
+      <hr/>
+      <p>जनजातीय कार्य मंत्रालय, भारत सरकार विशेष रूप से कमजोर जनजातीय समूहों (PVTGs) के छात्रवृत्ति आवेदनों के <strong>प्राथमिकता सत्यापन</strong> और <strong>त्वरित निष्पादन</strong> हेतु निम्नलिखित परिचालन दिशानिर्देश जारी करता है।</p>
+      <h3>पृष्ठभूमि</h3>
+      <p>भारत में 18 राज्यों और 1 केंद्र शासित प्रदेश में 75 चिन्हित पीवीटीजी समुदाय हैं, जिनकी कुल आबादी लगभग 37.5 लाख है। इन समुदायों को विशेष सामाजिक-आर्थिक संरक्षण और कल्याणकारी योजनाओं में शीर्ष प्राथमिकता आवश्यक है।</p>
+      <h3>मुख्य निर्देश</h3>
+      <ol>
+        <li><strong>स्वचालित PVTG पहचान:</strong> राज्य पोर्टलों को ई-डिस्ट्रिक्ट डेटाबेस के साथ एकीकृत होना होगा ताकि एसटी जाति प्रमाण पत्र से पीवीटीजी स्थिति का स्वतः सत्यापन हो सके।</li>
+        <li><strong>त्वरित सत्यापन (फास्ट-ट्रैक):</strong> पीवीटीजी छात्रों के सभी आवेदनों का सत्यापन 7 कार्य दिवसों के भीतर अनिवार्य रूप से पूरा किया जाना चाहिए।</li>
+        <li><strong>प्राथमिकता संवितरण:</strong> जिला, राज्य और राष्ट्रीय स्तर पर पीवीटीजी आवेदकों को डीबीटी प्रत्यक्ष लाभ अंतरण में सर्वोच्च प्राथमिकता प्रदान की जाएगी।</li>
+        <li><strong>अतिरिक्त छात्रावास भत्ता:</strong> पीवीटीजी छात्रों को नियमित छात्रवृत्ति दरों से अतिरिक्त ₹500/माह पूरक छात्रावास भत्ता दिया जाएगा।</li>
+      </ol>
+      <h3>प्रमुख पीवीटीजी समुदाय</h3>
+      <p>प्रमुख पीवीटीजी: बिरहोर (झारखंड), बैगा (मध्य प्रदेश/छत्तीसगढ़), चेन्चू (आंध्र प्रदेश/तेलंगाना), टोडा (तमिलनाडु), कोरवा (छत्तीसगढ़), चोलनायकन (केरल), ग्रेट अंडमानी एवं जारवा (अंडमान निकोबार)।</p>
+      <p>समस्त राज्य जनजातीय कल्याण विभाग <strong>31 दिसंबर 2026</strong> तक ई-डिस्ट्रिक्ट एकीकरण पूर्ण सुनिश्चित करें।</p>
+    `,
+    te: `
+      <h2>విషయం: ఈ-డిస్ట్రిక్ట్ ఏకీకరణ ద్వారా ముఖ్యంగా బలహీనమైన గిరిజన సమూహాల (PVTG) ప్రాధాన్యతా ధృవీకరణ మార్గదర్శకాలు</h2>
+      <p><strong>రిఫరెన్స్:</strong> F.No. 16013/01/2026-SCD-VI తేదీ: 5 సెప్టెంబర్, 2026</p>
+      <hr/>
+      <p>ముఖ్యంగా బలహీనమైన గిరిజన సమూహాలకు (PVTGs) చెందిన విద్యార్థుల స్కాలర్‌షిప్ దరఖాస్తులను <strong>ప్రాధాన్యతతో ధృవీకరించడం</strong> మరియు <strong>వేగవంతంగా ప్రాసెస్ చేయడం</strong> కొరకు గిరిజన వ్యవహారాల మంత్రిత్వ శాఖ ఈ క్రింది మార్గదర్శకాలను జారీ చేస్తోంది.</p>
+      <h3>నేపథ్యం</h3>
+      <p>భారతదేశంలోని 18 రాష్ట్రాలు మరియు 1 కేంద్రపాలిత ప్రాంతంలో 75 గుర్తించబడిన PVTG సమూహాలు ఉన్నాయి. వీరి జనాభా సుమారు 37.5 లక్షలు. అత్యంత వెనుకబడిన ఈ సమాజాలకు సంక్షేమ పథకాలలో ప్రత్యేక శ్రద్ధ అవసరం.</p>
+      <h3>కీలక ఆదేశాలు</h3>
+      <ol>
+        <li><strong>ఆటోమేటెడ్ PVTG గుర్తింపు:</strong> ఎస్టీ కుల ధృవీకరణ పత్రాల నుండి నేరుగా PVTG హోదాను గుర్తించడానికి రాష్ట్ర పోర్టల్స్ ఈ-డిస్ట్రిక్ట్ డేటాబేస్‌తో అనుసంధానం కావాలి.</li>
+        <li><strong>ఫాస్ట్ ట్రాక్ ప్రాసెసింగ్:</strong> PVTG దరఖాస్తుల పరిశీలన 7 పనిదినాల్లోపు తప్పనిసరిగా పూర్తి కావాలి (సాధారణ ఎస్టీ దరఖాస్తులకు 21 రోజులు).</li>
+        <li><strong>నిధుల మంజూరులో అగ్ర ప్రాధాన్యత:</strong> జిల్లా, రాష్ట్ర మరియు కేంద్ర స్థాయిలలో నేరుగా నిధుల విడుదల (DBT) కోసం PVTG విద్యార్థులకు మొదటి ప్రాధాన్యత లభిస్తుంది.</li>
+        <li><strong>అదనపు హాస్టల్ భత్యం:</strong> సాధారణ రేట్లకు అదనంగా నెలకు ₹500 ప్రత్యేక హాస్టల్ భత్యం మంజూరు చేయబడుతుంది.</li>
+      </ol>
+      <h3>గుర్తించబడిన ముఖ్య PVTGలు</h3>
+      <p>చెంచు (ఆంధ్రప్రదేశ్ &amp; తెలంగాణ), తోడ (తమిళనాడు), బైగా (మధ్యప్రదేశ్), కొర్వా (ఛత్తీస్‌గఢ్), బిర్హోర్ (జార్ఖండ్), చోళనాయకన్ (కేరళ), అండమానీస్ &amp; జరావా (అండమాన్).</p>
+      <p>రాష్ట్ర గిరిజన సంక్షేమ శాఖలు <strong>31 డిసెంబర్ 2026</strong> నాటికి ఈ-డిస్ట్రిక్ట్ ఏకీకరణను పూర్తి చేయాలి.</p>
+    `,
+    ta: `
+      <h2>பொருள்: இ-டிஸ்ட்ரிக்ட் ஒருங்கிணைப்பு மூலம் குறிப்பாக பாதிக்கப்படக்கூடிய பழங்குடியினர் குழுக்களுக்கான (PVTG) முன்னுரிமை சரிபார்ப்பு வழிகாட்டுதல்கள்</h2>
+      <p><strong>குறிப்பு:</strong> F.No. 16013/01/2026-SCD-VI நாள்: 5 செப்டம்பர், 2026</p>
+      <hr/>
+      <p>குறிப்பாக பாதிக்கப்படக்கூடிய பழங்குடியினர் குழுக்களைச் (PVTG) சேர்ந்த மாணவர்களின் கல்வி உதவித்தொகை விண்ணப்பங்களை <strong>முன்னுரிமை அடிப்படையில் சரிபார்க்கவும்</strong>, <strong>விரைவாக வழங்கவும்</strong> மத்திய பழங்குடியினர் விவகார அமைச்சகம் பின்வரும் வழிகாட்டுதல்களை வெளியிடுகிறது.</p>
+      <h3>பின்னணி</h3>
+      <p>இந்தியாவின் 18 மாநிலங்கள் மற்றும் 1 யூனியன் பிரதேசத்தில் 75 அங்கீகரிக்கப்பட்ட PVTG பழங்குடி பிரிவுகள் உள்ளன. இவர்கள் கல்வி மற்றும் சமூகப் பொருளாதாரத்தில் பின்தங்கியுள்ளதால் இவர்களுக்கு முழு முன்னுரிமை அளிக்கப்படுகிறது.</p>
+      <h3>முக்கிய வழிகாட்டுதல்கள்</h3>
+      <ol>
+        <li><strong>தானியங்கி PVTG சரிபார்ப்பு:</strong> சாதி சான்றிதழிலிருந்து PVTG பிரிவை உடனுக்குடன் உறுதி செய்ய மாநில போர்ட்டல்கள் இ-டிஸ்ட்ரிக்ட் அமைப்புடன் இணைக்கப்பட வேண்டும்.</li>
+        <li><strong>விரைவு சரிபார்ப்பு (7 நாட்கள்):</strong> PVTG விண்ணப்பங்கள் 7 வேலை நாட்களுக்குள் முழுமையாக சரிபார்க்கப்பட வேண்டும்.</li>
+        <li><strong>முதன்மை நிதி விடுவிப்பு:</strong> மாவட்ட, மாநில மற்றும் மத்திய நிதி ஒதுக்கீட்டு வரிசையில் PVTG மாணவர்களுக்கு முதல் முன்னுரிமை வழங்கப்படும்.</li>
+        <li><strong>கூடுதல் விடுதி உதவித்தொகை:</strong> வழக்கமான உதவித்தொகையுடன் சேர்த்து மாதம் ₹500 கூடுதல் விடுதி பராமரிப்பு தொகை வழங்கப்படும்.</li>
+      </ol>
+      <h3>முக்கிய PVTG பிரிவுகள்</h3>
+      <p>தோடர், கோத்தர் (தமிழ்நாடு), செஞ்சு (ஆந்திரா/தெலுங்கானா), பைகா (மத்திய பிரதேசம்), பிர்ஹோர் (ஜார்க்கண்ட்), சோழநாயக்கர் (கேரளா), அந்தமானியர்.</p>
+      <p>அனைத்து மாநில பழங்குடியினர் நலத்துறைகளும் <strong>டிசம்பர் 31, 2026</strong>-க்குள் இந்த ஒருங்கிணைப்பை முடிக்க வேண்டும்.</p>
+    `,
+    mr: `
+      <h2>विषय: ई-डिस्ट्रिक्ट एकत्रीकरणाद्वारे विशेष असुरक्षित आदिवासी गटांच्या (PVTG) प्राधान्य पडताळणीसाठी मार्गदर्शक तत्त्वे</h2>
+      <p><strong>संदर्भ:</strong> F.No. 16013/01/2026-SCD-VI दिनांक: 5 सप्टेंबर, 2026</p>
+      <hr/>
+      <p>विशेष असुरक्षित आदिवासी गटांतील (PVTGs) विद्यार्थ्यांच्या शिष्यवृत्ती अर्जांची <strong>प्राधान्याने पडताळणी</strong> व <strong>जलद मंजुरी</strong> करण्यासाठी आदिवासी कार्य मंत्रालयाने खालील मार्गदर्शक तत्त्वे जारी केली आहेत.</p>
+      <h3>पार्श्वभूमी</h3>
+      <p>भारतातील १८ राज्ये आणि एका केंद्रशासित प्रदेशात ७५ नामांकित पीव्हीटीजी गट आहेत. या समुदायांच्या उत्थानासाठी विशेष शैक्षणिक पाठबळ देणे आवश्यक आहे.</p>
+      <h3>प्रमुख निर्देश</h3>
+      <ol>
+        <li><strong>स्वयंचलित PVTG ओळख:</strong> जात प्रमाणपत्रावरून पीव्हीटीजी दर्जा तपासण्यासाठी राज्य पोर्टल ई-डिस्ट्रिक्ट डेटाबेसशी जोडणे अनिवार्य आहे.</li>
+        <li><strong>जलद गती मंजुरी:</strong> पीव्हीटीजी विद्यार्थ्यांचे अर्ज ७ कामकाजाच्या दिवसांत निकाली काढावेत.</li>
+        <li><strong>निधी वितरणात सर्वोच्च प्राधान्य:</strong> डीबीटी प्रणालीत पीव्हीटीजी विद्यार्थ्यांना सर्वात आधी शिष्यवृत्ती वर्ग केली जाईल.</li>
+        <li><strong>अतिरिक्त वसतिगृह भत्ता:</strong> नियमित दरांव्यतिरिक्त दरमहा ₹५०० अतिरिक्त वसतिगृह भत्ता देय राहील.</li>
+      </ol>
+      <h3>प्रमुख पीव्हीटीजी समुदाय</h3>
+      <p>कातकरी, माडिया गोंड, कोलाम (महाराष्ट्र), बैगा (मध्य प्रदेश), बिरहोर (झारखंड), चेन्चू (तेलंगणा), तोडा (तामिळनाडू).</p>
+      <p>राज्य आदिवासी विकास विभागांनी <strong>३१ डिसेंबर २०२६</strong> पर्यंत ई-डिस्ट्रिक्ट एकत्रीकरण पूर्ण करावे.</p>
+    `,
+    bn: `
+      <h2>বিষয়: ই-ডিস্ট্রিক্ট ইন্টিগ্রেশনের মাধ্যমে বিশেষ দুর্বল উপজাতীয় গোষ্ঠীর (PVTG) অগ্রাধিকার যাচাইকরণ নির্দেশিকা</h2>
+      <p><strong>রেফারেন্স:</strong> F.No. 16013/01/2026-SCD-VI তারিখ: ৫ই সেপ্টেম্বর, ২০২৬</p>
+      <hr/>
+      <p>উপজাতি বিষয়ক মন্ত্রণালয় বিশেষ দুর্বল উপজাতীয় গোষ্ঠী (PVTG) অন্তর্ভুক্ত শিক্ষার্থীদের বৃত্তির আবেদনগুলির <strong>অগ্রাধিকার যাচাই</strong> এবং <strong>দ্রুত নিষ্পত্তির</strong> জন্য নির্দেশিকা জারি করেছে।</p>
+      <h3>পটভূমি</h3>
+      <p>ভারতের ১৮টি রাজ্য এবং ১টি কেন্দ্রশাসিত অঞ্চলে ৭৫টি চিহ্নিত পিভিটিজি উপজাতি সম্প্রদায় রয়েছে। তাদের সামগ্রিক কল্যাণ নিশ্চিত করতে এই বিশেষ পদক্ষেপ।</p>
+      <h3>প্রধান নির্দেশাবলী</h3>
+      <ol>
+        <li><strong>স্বয়ংক্রিয় পিভিটিজি যাচাই:</strong> এসটি জাতি শংসাপত্র থেকে সরাসরি পিভিটিজি স্থিতি নিশ্চিত করতে ই-ডিস্ট্রিক্ট ডেটাবেসের সাথে সংযুক্ত করতে হবে।</li>
+        <li><strong>দ্রুত নিষ্পত্তি (৭ কার্যদিবস):</strong> পিভিটিজি আবেদনগুলি ৭ কার্যদিবসের মধ্যে যাচাইকরণ সম্পন্ন করতে হবে।</li>
+        <li><strong>তহবিল বরাদ্দে অগ্রাধিকার:</strong> ডিবিটি অর্থপ্রদানে পিভিটিজি আবেদনকারীদের শীর্ষ অগ্রাধিকার দেওয়া হবে।</li>
+        <li><strong>অতিরিক্ত হোস্টেল ভাতা:</strong> নিয়মিত হারের অতিরিক্ত প্রতি মাসে ₹৫০০ বিশেষ হোস্টেল ভাতা প্রদান করা হবে।</li>
+      </ol>
+      <h3>প্রধান পিভিটিজি উপজাতি</h3>
+      <p>টোটো, লোধা, বিরহোর (পশ্চিমবঙ্গ/ঝাড়খণ্ড), চেঞ্চু (অন্ধ্রপ্রদেশ), তোদা (তামিলনাড়ু), বৈগা (মধ্যপ্রদেশ), আন্দামানিজ।</p>
+      <p>সকল রাজ্য উপজাতি কল্যাণ দপ্তরকে <strong>৩১শে ডিসেম্বর ২০২৬</strong> এর মধ্যে এই ইন্টিগ্রেশন সম্পন্ন করার নির্দেশ দেওয়া হয়েছে।</p>
+    `,
+    kn: `
+      <h2>ವಿಷಯ: ಇ-ಡಿಸ್ಟ್ರಿಕ್ಟ್ ಏಕೀಕರಣದ ಮೂಲಕ ನಿರ್ದಿಷ್ಟವಾಗಿ ದುರ್ಬಲ ಬುಡಕಟ್ಟು ಗುಂಪುಗಳ (PVTG) ಆದ್ಯತಾ ಪರಿಶೀಲನಾ ಮಾರ್ಗಸೂಚಿಗಳು</h2>
+      <p><strong>ಉಲ್ಲೇಖ:</strong> F.No. 16013/01/2026-SCD-VI ದಿನಾಂಕ: 5 ಸೆಪ್ಟೆಂಬರ್, 2026</p>
+      <hr/>
+      <p>ನಿರ್ದಿಷ್ಟವಾಗಿ ದುರ್ಬಲ ಬುಡಕಟ್ಟು ಗುಂಪುಗಳ (PVTG) ವಿದ್ಯಾರ್ಥಿಗಳ ವಿದ್ಯಾರ್ಥಿವೇತನ ಅರ್ಜಿಗಳನ್ನು <strong>ಆದ್ಯತೆಯ ಮೇಲೆ ಪರಿಶೀಲಿಸಲು</strong> ಮತ್ತು <strong>ತ್ವರಿತವಾಗಿ ಮಂಜೂರು ಮಾಡಲು</strong> ಬುಡಕಟ್ಟು ವ್ಯವಹಾರಗಳ ಸಚಿವಾಲಯವು ಕೆಳಗಿನ ಮಾರ್ಗಸೂಚಿಗಳನ್ನು ಹೊರಡಿಸಿದೆ.</p>
+      <h3>ಹಿನ್ನೆಲೆ</h3>
+      <p>ಭಾರತದ 18 ರಾಜ್ಯಗಳು ಮತ್ತು 1 ಕೇಂದ್ರಾಡಳಿತ ಪ್ರದೇಶದಲ್ಲಿ 75 ಮಾನ್ಯತೆ ಪಡೆದ PVTG ಸಮುದಾಯಗಳಿವೆ. ಅತ್ಯಂತ ಹಿಂದುಳಿದಿರುವ ಈ ಸಮುದಾಯಗಳ ಶಿಕ್ಷಣಕ್ಕೆ ಮೊದಲ ಆದ್ಯತೆ ನೀಡುವುದು ಅತ್ಯಗತ್ಯ.</p>
+      <h3>ಪ್ರಮುಖ ನಿರ್ದೇಶನಗಳು</h3>
+      <ol>
+        <li><strong>ಸ್ವಯಂಚಾಲಿತ PVTG ಪರಿಶೀಲನೆ:</strong> ಜಾತಿ ಪ್ರಮಾಣಪತ್ರದಿಂದ ನೇರವಾಗಿ PVTG ಸ್ಥಾನಮಾನವನ್ನು ಪರಿಶೀಲಿಸಲು ಇ-ಡಿಸ್ಟ್ರಿಕ್ಟ್ ಡೇಟಾಬೇಸ್‌ನೊಂದಿಗೆ ಸಂಪರ್ಕ ಸಾಧಿಸುವುದು.</li>
+        <li><strong>ತ್ವರಿತ ಪ್ರಕ್ರಿಯೆ:</strong> PVTG ಅರ್ಜಿಗಳನ್ನು ಕಡ್ಡಾಯವಾಗಿ 7 ಕೆಲಸದ ದಿನಗಳಲ್ಲಿ ಪರಿಶೀಲಿಸಿ ಮುಗಿಸಬೇಕು.</li>
+        <li><strong>ಅನುದಾನ ಮಂಜೂರಾತಿಯಲ್ಲಿ ಮೊದಲ ಆದ್ಯತೆ:</strong> ನೇರ ನಗದು ವರ್ಗಾವಣೆ (DBT) ಮೂಲಕ ಹಣ ಬಿಡುಗಡೆ ಮಾಡಲು PVTG ವಿದ್ಯಾರ್ಥಿಗಳಿಗೆ ಮೊದಲ ಆದ್ಯತೆ ನೀಡಲಾಗುತ್ತದೆ.</li>
+        <li><strong>ಹೆಚ್ಚುವರಿ ಹಾಸ್ಟೆಲ್ ಭತ್ಯೆ:</strong> ನಿಯಮಿತ ವಿದ್ಯಾರ್ಥಿವೇತನದ ಜತೆಗೆ ತಿಂಗಳಿಗೆ ₹500 ಹೆಚ್ಚುವರಿ ಹಾಸ್ಟೆಲ್ ಭತ್ಯೆ ನೀಡಲಾಗುತ್ತದೆ.</li>
+      </ol>
+      <h3>ಪ್ರಮುಖ PVTG ಸಮುದಾಯಗಳು</h3>
+      <p>ಜೆನು ಕುರುಬ, ಕೊರಗ (ಕರ್ನಾಟಕ), ಚೆಂಚು (ಆಂಧ್ರ/ತೆಲಂಗಾಣ), ತೋಡ (ತಮಿಳುನಾಡು), ಬೈಗಾ (ಮಧ್ಯಪ್ರದೇಶ), ಬಿರ್ಹೋರ್ (ಜಾರ್ಖಂಡ್).</p>
+      <p>ರಾಜ್ಯ ಬುಡಕಟ್ಟು ಕಲ್ಯಾಣ ಇಲಾಖೆಗಳು <strong>31 ಡಿಸೆಂಬರ್ 2026</strong> ರೊಳಗೆ ಈ ಪ್ರಕ್ರಿಯೆಯನ್ನು ಪೂರ್ಣಗೊಳಿಸಬೇಕು.</p>
+    `
+  };
+
   // Rich content map for each circular with real government tribal scholarship details
   const circularContent: Record<string, string> = {
     'ann_1': `
@@ -710,24 +835,7 @@ router.get('/announcements/:id/download', (req, res) => {
       </ul>
       <p>Family income must not exceed ₹6,00,000 per annum from all sources. The complete list is available at <em>tribal.nic.in</em>.</p>
     `,
-    'ann_6': `
-      <h2>Subject: Guidelines for Particularly Vulnerable Tribal Group (PVTG) Priority Verification through e-District Integration</h2>
-      <p><strong>Reference:</strong> F.No. 16013/01/2026-SCD-VI dated 5th September, 2026</p>
-      <hr/>
-      <p>The Ministry of Tribal Affairs issues the following operational guidelines for implementation of <strong>priority verification</strong> and <strong>expedited processing</strong> of scholarship applications from students belonging to Particularly Vulnerable Tribal Groups (PVTGs).</p>
-      <h3>Background</h3>
-      <p>India has 75 identified PVTGs across 18 States and 1 Union Territory, with a combined population of approximately 37.5 lakh. These communities face the most severe socio-economic deprivation and require special attention in welfare scheme implementation.</p>
-      <h3>Key Directives</h3>
-      <ol>
-        <li><strong>Automated PVTG Identification:</strong> State portals must integrate with e-District databases to auto-detect PVTG status from ST certificates. The certificate must specify the exact tribal group name.</li>
-        <li><strong>Fast-Track Processing:</strong> PVTG applications must be verified within 7 working days (vs. 21 days for general ST).</li>
-        <li><strong>Priority Sanctioning:</strong> PVTG applicants shall receive top priority in fund sanctioning queues at District, State, and Central levels.</li>
-        <li><strong>Additional Allowances:</strong> PVTG students are eligible for supplementary hostel allowance of ₹500/month over regular rates.</li>
-      </ol>
-      <h3>List of 75 PVTGs</h3>
-      <p>Some notable PVTGs include: Birhor (Jharkhand), Baiga (MP/Chhattisgarh), Particularly Vulnerable Groups in Andaman &amp; Nicobar (Great Andamanese, Onge, Jarawa, Sentinelese), Korwa (Chhattisgarh), Chenchu (Telangana/AP), Toda (Tamil Nadu), Cholanaickan (Kerala), Birjia (Jharkhand).</p>
-      <p>State Tribal Welfare Departments must complete e-District integration by <strong>31st December 2026</strong>.</p>
-    `,
+    'ann_6': (pvtgGuidelinesByLang[lang] || pvtgGuidelinesByLang['en']),
   };
 
   const titleText = ann[`title_${lang}`] || ann.title_hi || ann.title_en;

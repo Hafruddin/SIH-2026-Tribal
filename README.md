@@ -1,136 +1,117 @@
-# TRIBAL SCHOLAR (SIH 2026 Problem Statement 26238)
-> *"Empowering Tribal Youth Through Higher Education"*
+# TRIBAL SCHOLAR (SIH 2026 — Problem Statement ID: 26238)
+> *"Unified Scholarship Mobile Application & Web Portal for Tribal Students"*
+> Ministry of Tribal Affairs (MoTA), Government of India • Smart India Hackathon 2026
 
-**Official Unified Scholarship Application Portal Prototype** for Ministry of Tribal Affairs (MoTA), Government of India. Developed for Smart India Hackathon 2026.
-
----
-
-## 🏛️ Core Product Differentiator
-**"One Student → One Profile → One Document Vault → Multiple Eligible Scholarships → One Unified Tracking Experience"**
-*Verify once. Reuse securely across central and state tribal scholarship schemes.*
+**Production Frontend URL:** [https://tribalscholarship.netlify.app](https://tribalscholarship.netlify.app)  
+**GitHub Repository:** [https://github.com/Hafruddin/SIH-2026-Tribal](https://github.com/Hafruddin/SIH-2026-Tribal)
 
 ---
 
-## 🚀 Key Features
-
-1. **Strict Website Template Preserved**:
-   - Official Ministry Header, Gov Banner, Language Switcher, Accessibility Controls.
-   - Quick Scheme Eligibility Finder Card.
-   - Live Metrics Dashboard (500K+ Students, ₹120 Cr+ Disbursed, 45+ Schemes).
-   - 4-Step Application Workflow Timeline.
-   - Featured Welfare Schemes Grid (Pre-Matric, Post-Matric, Top Class, National Fellowship NFST, National Overseas NOS).
-   - Latest Circulars & Helpdesk Grievance Cell.
-
-2. **Multilingual System (7 Languages)**:
-   - Supports **English (`en`), Hindi (`hi`), Telugu (`te`), Tamil (`ta`), Marathi (`mr`), Bengali (`bn`), Kannada (`kn`)**.
-   - Instant UI language switching with persistent storage.
-
-3. **Accessibility (WCAG 2.1 AA)**:
-   - Live Font Resizing Controls (`A` 100%, `A+` 115%, `A++` 130%).
-   - High contrast focus rings, ARIA labels, semantic HTML.
-
-4. **One-Time Registration (OTR) & Authentication**:
-   - Multi-step OTR wizard generating unique lifetime IDs (`OTR2026XXXXXX`).
-   - OTP simulation & Aadhaar identity demo verification.
-
-5. **Document Vault & DigiLocker Adapter**:
-   - One-time verification & reuse across schemes.
-   - Drag-and-drop file upload (PDF, JPG, PNG < 5MB).
-   - DigiLocker Authorization Adapter modal importing cryptographically verified certificates.
-
-6. **Unified Verification Layer & Government Adapters**:
-   - Adapter interfaces for UIDAI, ST Certificate e-District, Income Tax Revenue, UDISE+, APAAR, AISHE, UGC-NTA.
-
-7. **JAGO AI Chatbot Assistant**:
-   - Multilingual assistant powered by OpenAI API (with smart offline fallback rule engine).
-   - Context-aware: retrieves logged-in student's live application status and payment records.
-
-8. **Direct Benefit Transfer (DBT) Payment Tracker**:
-   - Real-time sanction and UTR payment tracking right up to bank credit confirmation.
-
-9. **ST Coverage Gap Analytics (Admin Portal)**:
-   - Route `/admin` & `/admin/analytics`: Matches UDISE+/APAAR ST headcount against OTR registrations to highlight unreached tribal populations.
+## 🏛️ Core Value Proposition
+**"One Student → One Profile → One Lifetime OTR → One Verified Document Vault → Multiple Eligible Scholarships → One Unified DBT Tracking Experience"**  
+*Verify once. Reuse securely across central and state tribal scholarship schemes without repetitive paperwork.*
 
 ---
 
-## 🔑 Demo Access Credentials
+## 🚀 Key Features & Architectural Modules
 
-| User Role | Credentials | Purpose |
+1. **JAGO Multilingual Voice Assistant (ElevenLabs ElevenAgents + Web Speech)**:
+   - Voice-first assistance designed for tribal students, supporting **English, Hindi, Telugu, Tamil, Marathi, Bengali, Kannada, and Malayalam**.
+   - Dual-engine fallback: Real-time ElevenLabs conversational AI SDK with seamless Web Speech API fallbacks.
+   - Profile-aware: Authenticated students can query their live application status, sanction numbers, and DBT payment dates via voice.
+
+2. **Unified Document Vault & DigiLocker Adapter**:
+   - Cryptographically stamped and verified document repository (ST Caste Certificate, Income Certificate, College Bonafide, Marksheets, Bank Passbook).
+   - Once verified, documents are automatically linked to future scholarship applications without re-uploading.
+
+3. **Multilingual System & Localized PDF Generation**:
+   - 8 language interfaces (`en`, `hi`, `te`, `ta`, `mr`, `bn`, `ml`, `kn`) covering all pages, forms, and dialogs.
+   - Multilingual Circular Viewer & PDF Generator (`ann_6` PVTG guidelines) rendering native script Unicode documents with printable formats.
+
+4. **Secure Authentication & Lifetime OTR**:
+   - Role-based authorization with bcrypt password encryption and JWT sessions.
+   - Dedicated portals for Students (`/student/dashboard`) and Administrators (`/admin`).
+
+5. **Direct Benefit Transfer (DBT) Tracker**:
+   - Real-time milestone tracking (Sanction, PFMS validation, Bank Credit, UTR transaction reference).
+
+6. **Government Integration Adapters (Mock Production-Ready Interfaces)**:
+   - UIDAI (Aadhaar verification), e-District (ST Caste & Income validation), UDISE+/APAAR (Student registry), PFMS (DBT disbursals).
+
+---
+
+## 🔑 Demo Credentials
+
+| Role | Identifier | Password | Access Path |
+| :--- | :--- | :--- | :--- |
+| **Demo Student** | `OTR2026001234` | `Student@123` | [`/login`](https://tribalscholarship.netlify.app/login) → [`/student/dashboard`](https://tribalscholarship.netlify.app/student/dashboard) |
+| **Demo Administrator** | `admin@tribalscholar.demo` | `Admin@123` | [`/login`](https://tribalscholarship.netlify.app/login) → [`/admin`](https://tribalscholarship.netlify.app/admin) |
+
+---
+
+## 🏗️ Production Architecture
+
+```
+USER BROWSER / MOBILE CLIENT
+           ↓
+    NETLIFY EDGE CDN (https://tribalscholarship.netlify.app)
+    React 18 + Vite SPA (Client-side routing + Axios)
+           ↓ HTTPS (VITE_API_BASE_URL)
+    PUBLIC NODE.JS BACKEND (Render / Railway / AWS)
+    Express + TypeScript + CORS + Helmet + Multer
+       ├── JAGO Assistant Engine (ElevenLabs SDK / Web Speech)
+       ├── Authentication & JWT Session Verifier
+       ├── Verification Engine & Gov Adapters
+       └── Database Layer (Prisma ORM for MySQL)
+```
+
+---
+
+## ⚙️ Environment Variables Setup
+
+### Frontend (`frontend/.env`)
+```env
+VITE_API_BASE_URL=https://your-backend-url.onrender.com
+```
+
+### Backend (`backend/.env`)
+```env
+PORT=5001
+NODE_ENV=production
+JWT_SECRET=your_secure_jwt_secret_key_here
+DATABASE_URL=mysql://user:password@host:3306/tribal_scholar
+OPENAI_API_KEY=your_openai_key
+ELEVENLABS_API_KEY=your_elevenlabs_key
+ELEVENLABS_AGENT_ID=agent_jago_tribal_scholar
+CORS_ORIGIN=https://tribalscholarship.netlify.app
+```
+
+---
+
+## 🚀 1-Click Backend Deployment (Render)
+
+1. Go to [Render Dashboard](https://dashboard.render.com).
+2. Click **New +** → **Blueprint**.
+3. Connect your GitHub repository: `https://github.com/Hafruddin/SIH-2026-Tribal`.
+4. Render will automatically detect `render.yaml` and configure the web service with all build and start commands.
+5. Copy your deployed Render URL (e.g., `https://tribal-scholar-backend.onrender.com`).
+6. In **Netlify Site Configuration** → **Environment Variables**, set:
+   - `VITE_API_BASE_URL` = `https://tribal-scholar-backend.onrender.com`
+7. Trigger a new deployment on Netlify.
+
+---
+
+## 🧪 Testing & Verification Status
+
+| Feature / Module | Status | Verification Summary |
 | :--- | :--- | :--- |
-| **Student (OTR)** | **OTR ID**: `OTR2026001234`<br/>**Password**: `Student@123` | Log in as pre-configured student (Aarav Kumar) with active applications & DBT payments. |
-| **Admin (MoTA)** | **Email**: `admin@tribalscholar.demo`<br/>**Password**: `Admin@123` | Access National Admin Control Portal & ST Coverage Analytics. |
-
----
-
-## ⚙️ Project Architecture
-
-```
-SIH-2026-2nd/
-├── backend/
-│   ├── src/
-│   │   ├── adapters/       # UIDAI, DigiLocker, ST Cert, Income, UDISE+/AISHE adapters
-│   │   ├── controllers/    # Route handler controllers
-│   │   ├── db/             # SQLite database setup & migrations
-│   │   ├── middleware/     # JWT Auth & Multer upload middleware
-│   │   ├── routes/         # Express REST API routes
-│   │   ├── seed/           # Rich seed data script
-│   │   ├── services/       # Verification Engine, JAGO AI Chatbot, ST Analytics
-│   │   └── server.ts       # Express Server entry point
-│   ├── .env
-│   ├── package.json
-│   └── tsconfig.json
-├── frontend/
-│   ├── src/
-│   │   ├── components/     # Header, Footer, JagoChatbot, TimelineTracker
-│   │   ├── context/        # LanguageContext, AccessibilityContext, AuthContext
-│   │   ├── i18n/           # Locales for 7 languages
-│   │   ├── pages/          # Landing, Schemes, Eligibility, OTR, Login, Dashboard, Vault, Admin
-│   │   ├── App.tsx         # React Router setup
-│   │   └── main.tsx
-│   ├── package.json
-│   ├── tailwind.config.js
-│   └── vite.config.ts
-└── README.md
-```
-
----
-
-## ⚡ Quick Start Guide (Local Execution)
-
-### Prerequisites
-- Node.js v18+ and npm installed.
-
-### 1. Start Backend Server (Port 5000)
-```bash
-cd backend
-npm install
-npm run seed     # Seeds demo students, schemes, vault documents & DBT payments
-npm run dev      # Starts Express server on http://localhost:5000
-```
-
-### 2. Start Frontend App (Port 5173)
-```bash
-cd frontend
-npm install
-npm run dev      # Starts Vite dev server on http://localhost:5173
-```
-
-Open your browser at:
-👉 **`http://localhost:5173`**
-
----
-
-## 🌐 API Documentation
-
-- `POST /api/auth/register` - Submit One-Time Registration (OTR)
-- `POST /api/auth/login` - Authenticate student or admin
-- `GET /api/scholarships` - List all 5 MoTA scholarship schemes
-- `POST /api/eligibility/check` - Run eligibility evaluation engine
-- `GET /api/applications` - Fetch student scholarship applications
-- `POST /api/applications` - Submit scholarship application with document vault reuse
-- `GET /api/documents` - Fetch student document vault
-- `POST /api/documents/digilocker/import` - Import verified certificate from DigiLocker
-- `GET /api/payments` - Track DBT bank credit payments
-- `POST /api/chat` - Interact with JAGO AI Assistant
-- `GET /api/admin/dashboard` - Admin summary metrics
-- `GET /api/admin/analytics` - ST Coverage Gap Analytics
+| **Frontend Build** | PASS | `npm run build` completed with 0 errors via TypeScript 5 & Vite. |
+| **Backend Build** | PASS | `tsc` compiled cleanly to `dist/server.js`. |
+| **Health Endpoints** | PASS | `GET /api/health` returns `{ ok: true, status: 'OK' }`. |
+| **JAGO Health** | PASS | `GET /api/jago/health` verifies ElevenLabs connectivity safely. |
+| **Student Auth** | PASS | `OTR2026001234` / `Student@123` verified with bcrypt & JWT. |
+| **Admin Auth** | PASS | `admin@tribalscholar.demo` / `Admin@123` verified with role `ADMIN`. |
+| **Invalid Auth** | PASS | Invalid password returns HTTP 401; empty input returns HTTP 400. |
+| **Multilingual PDFs** | PASS | `ann_6` verified with native Telugu, Tamil, Hindi, and English bodies. |
+| **Prisma Schema** | PASS | 14 database models defined with MySQL configuration in `backend/prisma/schema.prisma`. |
+| **Netlify Routing** | PASS | `netlify.toml` configured with `/* -> /index.html 200` to eliminate 404s. |

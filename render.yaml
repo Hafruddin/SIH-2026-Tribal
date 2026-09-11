@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: tribal-scholar-backend
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5001
+      - key: JWT_SECRET
+        generateValue: true
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: ELEVENLABS_AGENT_ID
+        value: agent_jago_tribal_scholar
+      - key: CORS_ORIGIN
+        value: https://tribalscholarship.netlify.app

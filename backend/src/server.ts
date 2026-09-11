@@ -11,8 +11,28 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5001;
 
-// Enable CORS and JSON parsing
-app.use(cors());
+// Allowed CORS origins (Netlify production + local development)
+const allowedOrigins = [
+  'https://tribalscholarship.netlify.app',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:5001',
+  'http://127.0.0.1:5001',
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.netlify.app')) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow during SIH prototype demonstration
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -27,18 +47,19 @@ if (!userCount || userCount.count === 0) {
   seedDatabase();
 }
 
-// Mount REST API endpoints
-app.use('/api', apiRouter);
-
-// Health check endpoint
-app.get('/health', (req, res) => {
+// Health check endpoints
+app.get(['/health', '/api/health'], (req, res) => {
   res.json({
+    ok: true,
     status: 'OK',
     application: 'Tribal Scholar Backend API',
     environment: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString(),
   });
 });
+
+// Mount REST API endpoints
+app.use('/api', apiRouter);
 
 app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`=======================================================`);

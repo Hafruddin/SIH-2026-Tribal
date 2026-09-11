@@ -1,0 +1,260 @@
+// Prisma Schema for Tribal Scholar (SIH 2026)
+// Unified Scholarship Portal for Tribal Students
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String?        @unique
+  mobile        String?        @unique
+  passwordHash  String         @map("password_hash")
+  role          String         // 'student' | 'admin'
+  otrId         String?        @unique @map("otr_id")
+  createdAt     DateTime       @default(now()) @map("created_at")
+
+  student       Student?
+  notifications Notification[]
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+model Student {
+  id                String        @id @default(uuid())
+  userId            String        @unique @map("user_id")
+  otrId             String        @unique @map("otr_id")
+  fullName          String        @map("full_name")
+  dob               String
+  gender            String
+  state             String
+  district          String
+  pincode           String
+  address           String        @db.Text
+  category          String
+  stCertificateNo   String?       @map("st_certificate_no")
+  pvtgStatus        Int           @default(0) @map("pvtg_status")
+  pvtgGroupName     String?       @map("pvtg_group_name")
+  annualIncome      Float         @map("annual_income")
+  fatherName        String?       @map("father_name")
+  motherName        String?       @map("mother_name")
+  academicLevel     String        @map("academic_level")
+  currentCourse     String        @map("current_course")
+  institutionName   String        @map("institution_name")
+  institutionCode   String?       @map("institution_code")
+  disabilityStatus  Int           @default(0) @map("disability_status")
+  bankAccountNo     String        @map("bank_account_no")
+  ifscCode          String        @map("ifsc_code")
+  bankName          String        @map("bank_name")
+  aadhaarMasked     String        @map("aadhaar_masked")
+  profileCompleted  Int           @default(1) @map("profile_completed")
+
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applications      Application[]
+  documents         Document[]
+  payments          Payment[]
+  grievances        Grievance[]
+
+  @@map("students")
+}
+
+model Scholarship {
+  id             String        @id @default(uuid())
+  code           String        @unique
+  nameEn         String        @map("name_en")
+  nameHi         String        @map("name_hi")
+  nameTe         String        @map("name_te")
+  nameTa         String        @map("name_ta")
+  nameMr         String        @map("name_mr")
+  nameBn         String        @map("name_bn")
+  nameKn         String        @map("name_kn")
+  academicLevel  String        @map("academic_level")
+  incomeLimit    Float         @map("income_limit")
+  stOnly         Int           @default(1) @map("st_only")
+  pvtgPriority   Int           @default(1) @map("pvtg_priority")
+  deadline       String
+  maxAmount      Float         @map("max_amount")
+  descriptionEn  String        @db.Text @map("description_en")
+  descriptionHi  String        @db.Text @map("description_hi")
+  benefits       String        @db.Text
+  requiredDocs   String        @db.Text @map("required_docs")
+  guidelines     String        @db.Text
+  faqJson        String        @db.Text @map("faq_json")
+  status         String        @default("OPEN")
+
+  applications   Application[]
+
+  @@map("scholarships")
+}
+
+model Application {
+  id                 String                @id @default(uuid())
+  applicationNo      String                @unique @map("application_no")
+  studentId          String                @map("student_id")
+  scholarshipId      String                @map("scholarship_id")
+  academicYear       String                @map("academic_year")
+  currentStatus      String                @map("current_status")
+  submittedAt        DateTime              @default(now()) @map("submitted_at")
+  updatedAt          DateTime              @default(now()) @updatedAt @map("updated_at")
+  deficiencyRemarks  String?               @db.Text @map("deficiency_remarks")
+
+  student            Student               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  scholarship        Scholarship           @relation(fields: [scholarshipId], references: [id])
+  timeline           ApplicationTimeline[]
+  documents          ApplicationDocument[]
+  payments           Payment[]
+
+  @@map("applications")
+}
+
+model ApplicationTimeline {
+  id            String      @id @default(uuid())
+  applicationId String      @map("application_id")
+  stage         String
+  status        String
+  actionBy      String      @map("action_by")
+  remarks       String      @db.Text
+  timestamp     DateTime    @default(now())
+
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@map("application_timeline")
+}
+
+model Document {
+  id                 String                @id @default(uuid())
+  studentId          String                @map("student_id")
+  docType            String                @map("doc_type")
+  docName            String                @map("doc_name")
+  fileName           String                @map("file_name")
+  fileUrl            String                @map("file_url")
+  fileSize           Int                   @default(102400) @map("file_size")
+  verificationStatus String                @default("VERIFIED") @map("verification_status")
+  verifiedBy         String                @default("Unified System Verification Engine") @map("verified_by")
+  digilockerImported Int                   @default(0) @map("digilocker_imported")
+  uploadedAt         DateTime              @default(now()) @map("uploaded_at")
+  expiresAt          String?               @map("expires_at")
+
+  student            Student               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  applications       ApplicationDocument[]
+
+  @@map("documents")
+}
+
+model ApplicationDocument {
+  applicationId String      @map("application_id")
+  documentId    String      @map("document_id")
+
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  document      Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@id([applicationId, documentId])
+  @@map("application_documents")
+}
+
+model Payment {
+  id            String      @id @default(uuid())
+  applicationId String      @map("application_id")
+  studentId     String      @map("student_id")
+  amount        Float
+  sanctionNo    String      @map("sanction_no")
+  status        String
+  utrNo         String      @map("utr_no")
+  disbursedAt   DateTime    @default(now()) @map("disbursed_at")
+  bankStatus    String      @default("Success (DBT Account Credited)") @map("bank_status")
+
+  application   Application @relation(fields: [applicationId], references: [id])
+  student       Student     @relation(fields: [studentId], references: [id])
+
+  @@map("payments")
+}
+
+model Grievance {
+  id            String   @id @default(uuid())
+  ticketNo      String   @unique @map("ticket_no")
+  studentId     String   @map("student_id")
+  category      String
+  scholarshipId String?  @map("scholarship_id")
+  subject       String
+  description   String   @db.Text
+  status        String   @default("Submitted")
+  assignedTo    String   @default("MoTA Helpdesk Cell") @map("assigned_to")
+  resolution    String?  @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  student       Student  @relation(fields: [studentId], references: [id])
+
+  @@map("grievances")
+}
+
+model Announcement {
+  id          String   @id @default(uuid())
+  titleEn     String   @map("title_en")
+  titleHi     String   @map("title_hi")
+  category    String
+  publishDate String   @map("publish_date")
+  downloadUrl String   @map("download_url")
+  isActive    Int      @default(1) @map("is_active")
+
+  @@map("announcements")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  titleEn   String   @map("title_en")
+  titleHi   String   @map("title_hi")
+  messageEn String   @db.Text @map("message_en")
+  messageHi String   @db.Text @map("message_hi")
+  type      String
+  isRead    Int      @default(0) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model JagoConversation {
+  id        String        @id @default(uuid())
+  userId    String?       @map("user_id")
+  sessionId String        @unique @map("session_id")
+  language  String        @default("en")
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  messages  JagoMessage[]
+
+  @@map("jago_conversations")
+}
+
+model JagoMessage {
+  id             String           @id @default(uuid())
+  conversationId String           @map("conversation_id")
+  sender         String           // 'user' | 'agent'
+  text           String           @db.Text
+  language       String           @default("en")
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  conversation   JagoConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("jago_messages")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?  @map("user_id")
+  action    String
+  details   String?  @db.Text
+  ipAddress String?  @map("ip_address")
+  timestamp DateTime @default(now())
+
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
